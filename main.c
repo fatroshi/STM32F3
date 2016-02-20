@@ -1,6 +1,11 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
+#include <inttypes.h>
+#include <errno.h>
 
+#define ENTER 'x'
+#define SPACE ' '
 
 typedef enum{
 	true = 1,
@@ -10,9 +15,9 @@ typedef enum{
 }Boolean;
 
 struct Turtle{
-	char * options[5];
-	int nextOperation;
-	
+	char * options[5];		// Operations the turtle can perform
+	int nextOperation;		// Next operation that the turtle will perform
+	int value;				// The value parameter of the next operation
 };
 
 struct Buffer
@@ -22,40 +27,82 @@ struct Buffer
 	int index;
 };
 
+/*	Convert string to int value */
+int stringToInt(char string[]){
+	char * endptr;
+	int base = 10;
 
-int commandExists(struct Buffer * buffer, struct Turtle * turtle){
-	Boolean commandFound = false;
+	return strtoimax(string,&endptr,base);
+}
 
-	for (int operationIndex = 0; operationIndex < 5; ++operationIndex)
+/* 	Check if the command exists in turtle->operations 
+* 	if command found then:
+*	Reset buffer->index = 0
+*	Set turtle->nextOperation
+*	set turtle->value
+*/
+Boolean getCommand(struct Buffer * buffer, struct Turtle * turtle){
+		// Get string before space 
+	int size = buffer->index; 
+	char command[buffer->index];
+	char value[] = {0,0,0};
+	
+	for (int i = 0; i < size; ++i)
 	{
-		if(strcmp(turtle->options[operationIndex],buffer->db) == 0){
-			printf("Found command\n");
+		// Extract command
+		if(buffer->db[i] != SPACE){
+			command[i] = buffer->db[i];
+		}else{
+			// Get value after space (value)
+			// strncpy(dest, src + beginIndex, endIndex - beginIndex);
+			strncpy(value, buffer->db + (i+1), size - i);
+		}
+	}
+
+	// Convert string to integer
+	int intValue = stringToInt(value);
+	
+
+	printf("Extracted command: %s\n", command);
+	printf("Extracted str value: %s\n", value);
+	printf("Extracted int value: %d\n", intValue);
+	
+	// Check if the command exists
+	Boolean commandFound = false;
+	for (int operationIndex = 0; operationIndex < 5; ++operationIndex){
+		if(strcmp(turtle->options[operationIndex],command) == 0){
 			// Set nextOperation
 			turtle->nextOperation = operationIndex;
+			// Set operation value
+			turtle->value = intValue;
 			// Reset char counter
 			buffer->index = 0;
 			commandFound = true;
 			break;
 		}
 	}
+
 	return commandFound;
 }
 
+/* Add the input character from the user to the buffer */
 void addInputChar(struct Buffer * buffer){
 
 	int index = buffer->index;
 	char input = buffer->input;
-	
+
 	// Add character to the db
 	buffer->db[index] = input;
 	// Increase charCounter
 	buffer->index += 1;
 }
 
+/* Check if the input character from the user was ENTER */
+/* OBS!!! char parameter c should be the last element in buffer->db[buffer->index] :) */
 Boolean isInputEnter(char c){
 	Boolean isInputEnter = false;
 	// Check if char is enter (change x --> enter ascii sign)
-	if(c == 'x'){
+	if(c == ENTER){
 		isInputEnter = true;
 	}
 	return isInputEnter;
@@ -88,18 +135,27 @@ int main()
 	addInputChar(&buffer);
 	buffer.input = 't';
 	addInputChar(&buffer);
+	buffer.input = ' ';
+	addInputChar(&buffer);
+	buffer.input = '5';
+	addInputChar(&buffer);
 	//strcpy(buffer.db, "Farhad");
-	
-	char c = 'x';
+	buffer.input = ENTER;
+	addInputChar(&buffer);
 
-	if(isInputEnter(c)){
-		// Check if the command exists
-		if(commandExists(&buffer, &turtle) == true){
+	printf("%s\n", buffer.db);
+	
+	char lastCharInBuffer = buffer.input;
+	
+	if(isInputEnter(lastCharInBuffer)){
+		// Check if the command exists, if true, set value
+		if(getCommand(&buffer, &turtle) == true){
 			printf("Next operation is: %s\n", turtle.options[turtle.nextOperation]);
+		}else{
+			printf("%s --> Command does not exist\n", buffer.db);
 		}
 	}else{
-		buffer.input = c;
-		addInputChar(&buffer);
+		// Add character to buffer
 	}
 
   	return 0;
