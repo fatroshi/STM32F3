@@ -95,6 +95,7 @@ void addInputChar(struct Buffer * buffer){
 
 	// Add character to the db
 	buffer->db[index] = input;
+	buffer->db[index+1] = '\0';
 	// Increase charCounter
 	buffer->index += 1;
 }
@@ -129,7 +130,7 @@ int main()
 	turtle->feedback[1] = "Going left";
 	turtle->feedback[2] = "Going right";
 	turtle->feedback[3] = "Pick up pen";
-	turtle->feedback[4] = "Pick down";
+	turtle->feedback[4] = "Pick down the pen";
 
 	//printf("%s\n", turtle.feedback[4]);
 
@@ -164,6 +165,9 @@ int main()
 	if(isInputEnter(lastCharInBuffer)){
 		// Check if the command exists, if true, set value
 		if(getCommand(&buffer, turtle) == true){
+			// Change last letter to \0 --> end of string
+			//buffer.db[buffer.index] = '\0';
+
 			printf("Next operation is: %s\n", turtle->options[turtle->nextOperation]);
 			printf("Feedback: %s\n", turtle->feedback[turtle->nextOperation]);
 		}else{
