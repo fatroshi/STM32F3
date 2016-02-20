@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <errno.h>
+#include <stdlib.h>
 
 #define ENTER 'x'
 #define SPACE ' '
@@ -15,9 +16,10 @@ typedef enum{
 }Boolean;
 
 struct Turtle{
-	char * options[5];		// Operations the turtle can perform
+	char * options[6];		// Operations the turtle can perform
 	int nextOperation;		// Next operation that the turtle will perform
 	int value;				// The value parameter of the next operation
+	char * feedback[5];		// Feed back response to the user
 };
 
 struct Buffer
@@ -111,16 +113,28 @@ Boolean isInputEnter(char c){
 
 int main()
 {
+	// Turtle object
+	struct Turtle * turtle  = (struct Turtle *)malloc(sizeof(struct Turtle)); 
+	// Set value
+	turtle->value = 0;	
 	// All commands
-	struct Turtle turtle;
-	turtle.options[0] = "forward";
-	turtle.options[1] = "left";
-	turtle.options[2] = "right";
-	turtle.options[3] = "penup";
-	turtle.options[4] = "pendown";
+	turtle->options[0] = "forward";
+	turtle->options[1] = "left";
+	turtle->options[2] = "right";
+	turtle->options[3] = "penup";
+	turtle->options[4] = "pendown";
+	
+	// Feedback response for each command
+	turtle->feedback[0] = "Going forwad";
+	turtle->feedback[1] = "Going left";
+	turtle->feedback[2] = "Going right";
+	turtle->feedback[3] = "Pick up pen";
+	turtle->feedback[4] = "Pick down";
+
+	//printf("%s\n", turtle.feedback[4]);
 
 	struct Buffer buffer;
-
+	//buffer = (struct buffer *) malloc(sizeof(struct buffer));
 	buffer.index = 0;
 
 	// User input will be saved  in this var
@@ -143,14 +157,15 @@ int main()
 	buffer.input = ENTER;
 	addInputChar(&buffer);
 
-	printf("%s\n", buffer.db);
+	printf("Buffer: %s\n", buffer.db);
 	
 	char lastCharInBuffer = buffer.input;
 	
 	if(isInputEnter(lastCharInBuffer)){
 		// Check if the command exists, if true, set value
-		if(getCommand(&buffer, &turtle) == true){
-			printf("Next operation is: %s\n", turtle.options[turtle.nextOperation]);
+		if(getCommand(&buffer, turtle) == true){
+			printf("Next operation is: %s\n", turtle->options[turtle->nextOperation]);
+			printf("Feedback: %s\n", turtle->feedback[turtle->nextOperation]);
 		}else{
 			printf("%s --> Command does not exist\n", buffer.db);
 		}
