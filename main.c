@@ -9,6 +9,7 @@
 #define SPACE ' '
 #define OPERATIONS 6
 #define OPERATION_LIST 20
+#define EMPTY OPERATION_LIST+1
 
 typedef enum{
 	true = 1,
@@ -30,10 +31,15 @@ struct Turtle{
 
 struct Buffer
 {
-	char input;
-	char db[1000];
-	int index;
+	char input;								// Input char from terminal
+	char db[1000];							// Buffer storing the inputs from terminal
+	int index;								// Is used for the buffer, ex Buffer->db[index++] = 'a'
 };
+
+
+void hr(){
+	printf("+-------------------------------------------------+\n");
+}
 
 /*	Convert string to int value */
 int stringToInt(char string[]){
@@ -43,7 +49,7 @@ int stringToInt(char string[]){
 	return strtoimax(string,&endptr,base);
 }
 
-Boolean addCommandToList(char command[], char value[], struct Turtle * turtle){
+Boolean addTask(char command[], char value[], struct Turtle * turtle){
 	Boolean foundCommand = false;
 	
 	// Check if the command exists
@@ -86,7 +92,7 @@ void printTasks(struct Turtle * turtle){
 	}
 }
 
-Boolean isValidCommands(struct Buffer * buffer, struct Turtle * turtle){
+Boolean isValidInput(struct Buffer * buffer, struct Turtle * turtle){
 	Boolean commandFound = true;
 	
 	// Tmp variables
@@ -161,7 +167,7 @@ void getCommands(struct Buffer * buffer, struct Turtle * turtle){
 			}else{
 				// Command value
 				// Add command and value to operation list
-				addCommandToList(tmpCommand, data, turtle);
+				addTask(tmpCommand, data, turtle);
 			}
 			// Reset charCounter
 			charCounter = 0;
@@ -169,15 +175,12 @@ void getCommands(struct Buffer * buffer, struct Turtle * turtle){
 			continue;
 		}else if(inputChar == ']'){
 			// Add command and value to operation list
-			addCommandToList(tmpCommand, data, turtle);
+			addTask(tmpCommand, data, turtle);
 		}
 		// Store data
 		data[charCounter++] = inputChar;
 		data[charCounter+1] = '\0';
 	}
-
-	// Print out all task in the operation list
-	printTasks(turtle);
 }
 
 /* Add the input character from the user to the buffer */
@@ -206,8 +209,56 @@ Boolean isInputEnter(char c){
 }
 
 
-void operationHandler(struct Turtle * turtle){
+Boolean taskExists(struct Turtle * turtle){
+	Boolean taskExists = true;
+	if(turtle->operations[0] == EMPTY){
+		taskExists = false;
+	}
 
+	return taskExists;
+}
+
+void removeTask(struct Turtle * turtle){
+	for (int i = 1; i < OPERATION_LIST; ++i)
+	{
+		turtle->operations[i-1] = turtle->operations[i];
+	}
+	// Set last element as EMPTY
+	turtle->operations[OPERATION_LIST-1] = EMPTY;
+	// Set decrease index
+	if(turtle->index > 0){
+		turtle->index -=1;
+	}
+}
+
+
+
+void taskHandler(struct Turtle * turtle){
+	// Check if we have task to do
+	if(taskExists(turtle) == true){
+		// Check if the first task is "repeat"
+		int operationIndex = turtle->operations[0];
+		if(strcmp(turtle->options[operationIndex], "repeat") == 0){
+			// Repeat function
+			turtle->N = turtle->values[0];
+			printf("Found repeat function with N = %d \n", turtle->N);
+			// line break
+			hr();
+			// Remove task
+			removeTask(turtle);
+		}else{
+			turtle->N = 1;
+		}
+
+		// Do all task N times
+		for (int i = 0; i < turtle->N; ++i)
+		{
+			// This function should be replaced by a function that performs all the task!
+			printTasks(turtle);
+			hr();
+		}
+
+	}
 }
 
 void initTurtle(struct Turtle * turtle){
@@ -231,6 +282,12 @@ void initTurtle(struct Turtle * turtle){
 
 	// Error feedback
 	turtle->errors[0]	= "Command does not exist";
+	// Init task list
+	for (int i = 0; i < OPERATION_LIST; ++i)
+	{
+		turtle->operations[i] = EMPTY;
+	}
+
 }
 
 /* This function is only for testing should be removed  later */
@@ -259,7 +316,7 @@ int main()
 
 	// User input will be saved  in this var
 	// TESTING !!!!!!!
-	char input[] = "repeat 50 [right 11 left 12 left 13 forward 90 pendown 0]";
+	char input[] = "repeat 3 [right 11 left 12]";
 	userInput(input, buffer);
 
 	//printf("Buffer: %s\n", buffer->db);
@@ -272,7 +329,7 @@ int main()
 	if(isInputEnter(lastCharInBuffer)){
 		// Found Enter 
 		// Check if the command exists, if true, set value
-		if(isValidCommands(buffer,turtle) == true){	
+		if(isValidInput(buffer,turtle) == true){	
 			// Get all commands and att to task list
 			getCommands(buffer, turtle);
 		}
@@ -280,5 +337,8 @@ int main()
 		// Add character to buffer
 	}
 	
+	hr();
+	taskHandler(turtle);
+	removeTask(turtle);
   	return 0;
 }
