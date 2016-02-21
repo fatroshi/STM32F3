@@ -254,6 +254,7 @@ void taskHandler(struct Turtle * turtle){
 		for (int i = 0; i < turtle->N; ++i)
 		{
 			// This function should be replaced by a function that performs all the task!
+			//
 			printTasks(turtle);
 			hr();
 		}
