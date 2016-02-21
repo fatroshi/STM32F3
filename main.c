@@ -7,6 +7,8 @@
 
 #define ENTER 'x'
 #define SPACE ' '
+#define OPERATIONS 6
+#define OPERATION_LIST 20
 
 typedef enum{
 	true = 1,
@@ -15,17 +17,27 @@ typedef enum{
 	FALSE = 0
 }Boolean;
 
+struct OperationList
+{
+	int operations[OPERATION_LIST];
+	int values[OPERATION_LIST];
+	int index;								// Reference counter for knowing quantity of the operations
+	int N;
+};
+
 struct Turtle{
-	char * options[6];		// Operations the turtle can perform
-	int nextOperation;		// Next operation that the turtle will perform
-	int value;				// The value parameter of the next operation
-	char * feedback[5];		// Feed back response to the user
+	char * options[OPERATIONS];				// Operations the turtle can perform
+	int nextOperation;						// Next operation that the turtle will perform
+	int value;								// The value parameter of the next operation
+	char * feedback[OPERATIONS];			// Feed back response to the user
+	struct OperationList operationList;		//
+	char * errors[3];
 };
 
 struct Buffer
 {
 	char input;
-	char db[22];
+	char db[1000];
 	int index;
 };
 
@@ -37,54 +49,148 @@ int stringToInt(char string[]){
 	return strtoimax(string,&endptr,base);
 }
 
-/* 	Check if the command exists in turtle->operations 
-* 	if command found then:
-*	Reset buffer->index = 0
-*	Set turtle->nextOperation
-*	set turtle->value
-*/
-Boolean getCommand(struct Buffer * buffer, struct Turtle * turtle){
-		// Get string before space 
-	int size = buffer->index; 
-	char command[buffer->index];
-	char value[] = {0,0,0};
-	
-	for (int i = 0; i < size; ++i)
-	{
-		// Extract command
-		if(buffer->db[i] != SPACE){
-			command[i] = buffer->db[i];
-		}else{
-			// Get value after space (value)
-			// strncpy(dest, src + beginIndex, endIndex - beginIndex);
-			strncpy(value, buffer->db + (i+1), size - i);
-		}
-	}
-
-	// Convert string to integer
-	int intValue = stringToInt(value);
-	
-
-	printf("Extracted command: %s\n", command);
-	printf("Extracted str value: %s\n", value);
-	printf("Extracted int value: %d\n", intValue);
+Boolean addCommandToList(char command[], char value[], struct Turtle * turtle){
+	Boolean foundCommand = false;
 	
 	// Check if the command exists
-	Boolean commandFound = false;
-	for (int operationIndex = 0; operationIndex < 5; ++operationIndex){
+	for (int operationIndex = 0; operationIndex < OPERATIONS; ++operationIndex){
 		if(strcmp(turtle->options[operationIndex],command) == 0){
-			// Set nextOperation
-			turtle->nextOperation = operationIndex;
-			// Set operation value
-			turtle->value = intValue;
-			// Reset char counter
-			buffer->index = 0;
-			commandFound = true;
+
+			int index = turtle->operationList.index;
+			int intValue = stringToInt(value);
+
+			turtle->operationList.operations[index] = operationIndex;
+			turtle->operationList.values[index] = intValue;
+			turtle->operationList.index += 1;
+			break;
+		}
+	}
+	return foundCommand;
+}
+
+Boolean commandExists(char command[], struct Turtle * turtle){
+	Boolean foundCommand = false;
+
+	for (int i = 0; i < OPERATIONS; ++i)
+	{
+		if(strcmp(command,turtle->options[i]) == 0){
+			foundCommand = true;
 			break;
 		}
 	}
 
+	return foundCommand;
+}
+
+void printTasks(struct Turtle * turtle){
+	int size = turtle->operationList.index;
+
+	for (int i = 0; i < size; ++i)
+	{
+		int index = turtle->operationList.operations[i];
+		printf("%s %d\n", turtle->options[index], turtle->operationList.values[i]);
+	}
+}
+
+Boolean isValidCommands(struct Buffer * buffer, struct Turtle * turtle){
+	Boolean commandFound = true;
+	
+	// Tmp variables
+	int bufferLength = buffer->index;
+	char data[bufferLength];
+
+	int charCounter = 0;
+	int spaces = 0;
+
+	// Store values temporary
+	char tmpCommand[20];
+	for (int i = 0; i < bufferLength; ++i)
+	{
+		char inputChar = buffer->db[i];
+
+		if(inputChar == '['){
+			continue;
+		}
+
+		if(inputChar == SPACE){
+			if(spaces % 2 == 0){
+				// Command value
+				// Check if command exist
+				//printf("Command: %s\n", data);
+				strcpy(tmpCommand, data);
+
+				if(commandExists(tmpCommand, turtle) == false){
+					// Print error: Command does not exist
+					printf("%s --> %s\n", tmpCommand, turtle->errors[0]); 
+					//
+					commandFound = false;
+					break;
+				}
+			}
+
+			// Reset charCounter
+			charCounter = 0;
+			spaces++;
+			continue;
+		}else if(inputChar == ']'){
+			//printf("Value: %s\n", data);
+		}
+
+		// Store data
+		data[charCounter++] = inputChar;
+		data[charCounter+1] = '\0';
+
+	}
+
 	return commandFound;
+}
+
+void getCommands(struct Buffer * buffer, struct Turtle * turtle){
+	// Tmp variables
+	int bufferLength = buffer->index;
+	char data[bufferLength];
+
+	int charCounter = 0;
+	int spaces = 0;
+
+	// Store values temporary
+	char tmpCommand[20];
+
+	for (int i = 0; i < bufferLength; ++i)
+	{
+		char inputChar = buffer->db[i];
+
+		if(inputChar == '['){
+			continue;
+		}
+
+		if(inputChar == SPACE){
+			if(spaces % 2 == 0){
+				// Command value
+				strcpy(tmpCommand, data);
+			}else{
+				// Command value
+				// Add command and value to operation list
+				addCommandToList(tmpCommand, data, turtle);
+			}
+
+			// Reset charCounter
+			charCounter = 0;
+			spaces++;
+			continue;
+		}else if(inputChar == ']'){
+			// Add command and value to operation list
+			addCommandToList(tmpCommand, data, turtle);
+		}
+
+		// Store data
+		data[charCounter++] = inputChar;
+		data[charCounter+1] = '\0';
+
+	}
+
+	// Print out all task in the operation list
+	printTasks(turtle);
 }
 
 /* Add the input character from the user to the buffer */
@@ -95,6 +201,7 @@ void addInputChar(struct Buffer * buffer){
 
 	// Add character to the db
 	buffer->db[index] = input;
+	// Add end of string character
 	buffer->db[index+1] = '\0';
 	// Increase charCounter
 	buffer->index += 1;
@@ -111,71 +218,76 @@ Boolean isInputEnter(char c){
 	return isInputEnter;
 }
 
-
-int main()
-{
-	// Turtle object
-	struct Turtle * turtle  = (struct Turtle *)malloc(sizeof(struct Turtle)); 
+void initTurtle(struct Turtle * turtle){
 	// Set value
 	turtle->value = 0;	
+	turtle->operationList.index = 0;
 	// All commands
 	turtle->options[0] = "forward";
 	turtle->options[1] = "left";
 	turtle->options[2] = "right";
 	turtle->options[3] = "penup";
 	turtle->options[4] = "pendown";
+	turtle->options[5] = "repeat";
 	
 	// Feedback response for each command
 	turtle->feedback[0] = "Going forwad";
 	turtle->feedback[1] = "Going left";
 	turtle->feedback[2] = "Going right";
 	turtle->feedback[3] = "Pick up pen";
-	turtle->feedback[4] = "Pick down the pen";
+	turtle->feedback[4] = "Pick down the pen";	
+	turtle->feedback[5] = "Repeat function";	
 
-	//printf("%s\n", turtle.feedback[4]);
+	// Error feedback
+	turtle->errors[0]	= "Command does not exist";
+}
 
-	struct Buffer buffer;
-	//buffer = (struct buffer *) malloc(sizeof(struct buffer));
-	buffer.index = 0;
+/* This function is only for testing should be removed  later */
+void userInput(char string[], struct Buffer * buffer){
+	for (int i = 0; i < (int)strlen(string); ++i)
+	{
+		char c = string[i];
+		buffer->input = c;
+		addInputChar(buffer);
+		
+	}
+	//printf("%s\n", buffer->db);
+}
+
+int main()
+{
+	// Turtle object
+	struct Turtle * turtle  = (struct Turtle *)malloc(sizeof(struct Turtle)); 
+	// Init. turtle struct
+	initTurtle(turtle);
+
+	// Buffer object
+	struct Buffer * buffer = (struct Buffer *)malloc(sizeof(struct Buffer)); 
+	//buffer = (struct buffer *) malloc(sizeof(struct buffer));	
+	buffer->index = 0;
 
 	// User input will be saved  in this var
 	// TESTING !!!!!!!
-	buffer.input = 'r';
-	addInputChar(&buffer);
-	buffer.input = 'i';
-	addInputChar(&buffer);
-	buffer.input = 'g';
-	addInputChar(&buffer);
-	buffer.input = 'h';
-	addInputChar(&buffer);
-	buffer.input = 't';
-	addInputChar(&buffer);
-	buffer.input = ' ';
-	addInputChar(&buffer);
-	buffer.input = '5';
-	addInputChar(&buffer);
-	//strcpy(buffer.db, "Farhad");
-	buffer.input = ENTER;
-	addInputChar(&buffer);
+	char input[] = "repeat 50 [right 11 left 12 left 13 forward 90 pendownn 0]";
+	userInput(input, buffer);
 
-	printf("Buffer: %s\n", buffer.db);
-	
-	char lastCharInBuffer = buffer.input;
+	//printf("Buffer: %s\n", buffer->db);
+	printf("input: %s\n", input);
+		
+	buffer->input = ENTER;
+	addInputChar(buffer);
+	char lastCharInBuffer = buffer->input;
 	
 	if(isInputEnter(lastCharInBuffer)){
+		// Found Enter 
 		// Check if the command exists, if true, set value
-		if(getCommand(&buffer, turtle) == true){
-			// Change last letter to \0 --> end of string
-			//buffer.db[buffer.index] = '\0';
-
-			printf("Next operation is: %s\n", turtle->options[turtle->nextOperation]);
-			printf("Feedback: %s\n", turtle->feedback[turtle->nextOperation]);
-		}else{
-			printf("%s --> Command does not exist\n", buffer.db);
+		if(isValidCommands(buffer,turtle) == true){	
+			// Get all commands and att to task list
+			getCommands(buffer, turtle);
 		}
 	}else{
 		// Add character to buffer
 	}
-
+	
   	return 0;
 }
