@@ -17,21 +17,15 @@ typedef enum{
 	FALSE = 0
 }Boolean;
 
-struct OperationList
-{
-	int operations[OPERATION_LIST];
-	int values[OPERATION_LIST];
-	int index;								// Reference counter for knowing quantity of the operations
-	int N;
-};
-
 struct Turtle{
 	char * options[OPERATIONS];				// Operations the turtle can perform
-	int nextOperation;						// Next operation that the turtle will perform
-	int value;								// The value parameter of the next operation
 	char * feedback[OPERATIONS];			// Feed back response to the user
-	struct OperationList operationList;		//
-	char * errors[3];
+	char * errors[3];						// Errors that could occur
+
+	int operations[OPERATION_LIST];			// List of all operations added by user
+	int values[OPERATION_LIST];				// Values for each operation
+	int index;								// Reference counter for knowing quantity of the operations
+	int N;									// Reapeat value for commands between [ c1 v1 c2 v2 ... cn vn]
 };
 
 struct Buffer
@@ -56,12 +50,12 @@ Boolean addCommandToList(char command[], char value[], struct Turtle * turtle){
 	for (int operationIndex = 0; operationIndex < OPERATIONS; ++operationIndex){
 		if(strcmp(turtle->options[operationIndex],command) == 0){
 
-			int index = turtle->operationList.index;
+			int index = turtle->index;
 			int intValue = stringToInt(value);
 
-			turtle->operationList.operations[index] = operationIndex;
-			turtle->operationList.values[index] = intValue;
-			turtle->operationList.index += 1;
+			turtle->operations[index] = operationIndex;
+			turtle->values[index] = intValue;
+			turtle->index += 1;
 			break;
 		}
 	}
@@ -83,12 +77,12 @@ Boolean commandExists(char command[], struct Turtle * turtle){
 }
 
 void printTasks(struct Turtle * turtle){
-	int size = turtle->operationList.index;
+	int size = turtle->index;
 
 	for (int i = 0; i < size; ++i)
 	{
-		int index = turtle->operationList.operations[i];
-		printf("%s %d\n", turtle->options[index], turtle->operationList.values[i]);
+		int index = turtle->operations[i];
+		printf("%s %d\n", turtle->options[index], turtle->values[i]);
 	}
 }
 
@@ -149,21 +143,17 @@ void getCommands(struct Buffer * buffer, struct Turtle * turtle){
 	// Tmp variables
 	int bufferLength = buffer->index;
 	char data[bufferLength];
-
 	int charCounter = 0;
 	int spaces = 0;
 
 	// Store values temporary
 	char tmpCommand[20];
-
 	for (int i = 0; i < bufferLength; ++i)
 	{
 		char inputChar = buffer->db[i];
-
 		if(inputChar == '['){
 			continue;
 		}
-
 		if(inputChar == SPACE){
 			if(spaces % 2 == 0){
 				// Command value
@@ -173,7 +163,6 @@ void getCommands(struct Buffer * buffer, struct Turtle * turtle){
 				// Add command and value to operation list
 				addCommandToList(tmpCommand, data, turtle);
 			}
-
 			// Reset charCounter
 			charCounter = 0;
 			spaces++;
@@ -182,11 +171,9 @@ void getCommands(struct Buffer * buffer, struct Turtle * turtle){
 			// Add command and value to operation list
 			addCommandToList(tmpCommand, data, turtle);
 		}
-
 		// Store data
 		data[charCounter++] = inputChar;
 		data[charCounter+1] = '\0';
-
 	}
 
 	// Print out all task in the operation list
@@ -218,10 +205,14 @@ Boolean isInputEnter(char c){
 	return isInputEnter;
 }
 
+
+void operationHandler(struct Turtle * turtle){
+
+}
+
 void initTurtle(struct Turtle * turtle){
 	// Set value
-	turtle->value = 0;	
-	turtle->operationList.index = 0;
+	turtle->index = 0;
 	// All commands
 	turtle->options[0] = "forward";
 	turtle->options[1] = "left";
@@ -268,7 +259,7 @@ int main()
 
 	// User input will be saved  in this var
 	// TESTING !!!!!!!
-	char input[] = "repeat 50 [right 11 left 12 left 13 forward 90 pendownn 0]";
+	char input[] = "repeat 50 [right 11 left 12 left 13 forward 90 pendown 0]";
 	userInput(input, buffer);
 
 	//printf("Buffer: %s\n", buffer->db);
