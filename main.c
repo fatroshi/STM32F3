@@ -168,6 +168,7 @@ void getCommands(struct Buffer * buffer, struct Turtle * turtle){
 				// Command value
 				// Add command and value to operation list
 				addTask(tmpCommand, data, turtle);
+				//printf("command %s value: %s \n", tmpCommand, data);
 			}
 			// Reset charCounter
 			charCounter = 0;
@@ -176,6 +177,9 @@ void getCommands(struct Buffer * buffer, struct Turtle * turtle){
 		}else if(inputChar == ']'){
 			// Add command and value to operation list
 			addTask(tmpCommand, data, turtle);
+
+			//printf("command %s value: %s \n", tmpCommand, data);
+
 		}
 		// Store data
 		data[charCounter++] = inputChar;
@@ -245,7 +249,7 @@ void taskHandler(struct Turtle * turtle){
 			// line break
 			hr();
 			// Remove task
-			removeTask(turtle);
+			//removeTask(turtle);
 		}else{
 			turtle->N = 1;
 		}
@@ -317,7 +321,7 @@ int main()
 
 	// User input will be saved  in this var
 	// TESTING !!!!!!!
-	char input[] = "repeat 3 [right 11 left 12]";
+	char input[] = "repeat 3 [right 12 left 13 forward 22 forward 11 pendown 1 left 99]";
 	userInput(input, buffer);
 
 	//printf("Buffer: %s\n", buffer->db);
