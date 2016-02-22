@@ -223,12 +223,23 @@ Boolean taskExists(struct Turtle * turtle){
 }
 
 void removeTask(struct Turtle * turtle){
+	
+	// Remove from operations list
 	for (int i = 1; i < OPERATION_LIST; ++i)
 	{
 		turtle->operations[i-1] = turtle->operations[i];
 	}
 	// Set last element as EMPTY
 	turtle->operations[OPERATION_LIST-1] = EMPTY;
+
+	// Remove for values list
+	for (int i = 1; i < OPERATION_LIST; ++i)
+	{
+		turtle->values[i-1] = turtle->values[i];
+	}
+	// Set last element as EMPTY
+	turtle->values[OPERATION_LIST-1] = EMPTY;
+
 	// Set decrease index
 	if(turtle->index > 0){
 		turtle->index -=1;
@@ -249,7 +260,7 @@ void taskHandler(struct Turtle * turtle){
 			// line break
 			hr();
 			// Remove task
-			//removeTask(turtle);
+			removeTask(turtle);
 		}else{
 			turtle->N = 1;
 		}
