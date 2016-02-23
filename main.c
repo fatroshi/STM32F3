@@ -21,24 +21,50 @@ typedef enum{
 struct Turtle{
 	char * options[OPERATIONS];				// Operations the turtle can perform
 	char * feedback[OPERATIONS];			// Feed back response to the user
-	char * errors[3];						// Errors that could occur
+	char * errors[3];									// Errors that could occur
 
-	int operations[OPERATION_LIST];			// List of all operations added by user
+	int operations[OPERATION_LIST];		// List of all operations added by user
 	int values[OPERATION_LIST];				// Values for each operation
-	int index;								// Reference counter for knowing quantity of the operations
-	int N;									// Reapeat value for commands between [ c1 v1 c2 v2 ... cn vn]
+	int index;												// Reference counter for knowing quantity of the operations
+	int N;														// Reapeat value for commands between [ c1 v1 c2 v2 ... cn vn]
 };
 
 struct Buffer
 {
-	char input;								// Input char from terminal
-	char db[1000];							// Buffer storing the inputs from terminal
-	int index;								// Is used for the buffer, ex Buffer->db[index++] = 'a'
+	char input;												// Input char from terminal
+	char db[1000];										// Buffer storing the inputs from terminal
+	int index;												// Is used for the buffer, ex Buffer->db[index++] = 'a'
 };
 
 
 void hr(){
 	printf("+-------------------------------------------------+\n");
+}
+
+
+
+/* Turtle options functions */
+
+void forward (int disetance){
+	printf("forward(disetance)\n");
+}
+
+void rotate (int decrease){
+	if(decrease < 0){
+		// Rotate left
+	}else{
+		// Rotate right
+	}
+
+	printf("rotate(decrease)\n");
+}
+
+void penDown(){
+	printf("penDown()\n");
+}
+
+void penUp(){
+	printf("penUp()\n");
 }
 
 /*	Convert string to int value */
@@ -49,6 +75,7 @@ int stringToInt(char string[]){
 	return strtoimax(string,&endptr,base);
 }
 
+// Add task to the task list
 Boolean addTask(char command[], char value[], struct Turtle * turtle){
 	Boolean foundCommand = false;
 	
@@ -68,6 +95,7 @@ Boolean addTask(char command[], char value[], struct Turtle * turtle){
 	return foundCommand;
 }
 
+// Return true if the command exists 
 Boolean commandExists(char command[], struct Turtle * turtle){
 	Boolean foundCommand = false;
 
@@ -82,6 +110,7 @@ Boolean commandExists(char command[], struct Turtle * turtle){
 	return foundCommand;
 }
 
+// Print out the tasks in the list
 void printTasks(struct Turtle * turtle){
 	int size = turtle->index;
 
@@ -92,8 +121,9 @@ void printTasks(struct Turtle * turtle){
 	}
 }
 
+// Check if the userinput contains valid commands
 Boolean isValidInput(struct Buffer * buffer, struct Turtle * turtle){
-	Boolean commandFound = true;
+	Boolean commandValid = true;
 	
 	// Tmp variables
 	int bufferLength = buffer->index;
@@ -121,9 +151,11 @@ Boolean isValidInput(struct Buffer * buffer, struct Turtle * turtle){
 
 				if(commandExists(tmpCommand, turtle) == false){
 					// Print error: Command does not exist
+					hr();
 					printf("%s --> %s\n", tmpCommand, turtle->errors[0]); 
+					hr();
 					//
-					commandFound = false;
+					commandValid = false;
 					break;
 				}
 			}
@@ -142,9 +174,10 @@ Boolean isValidInput(struct Buffer * buffer, struct Turtle * turtle){
 
 	}
 
-	return commandFound;
+	return commandValid;
 }
 
+// Get all the commands from the user input (buffer->db)
 void getCommands(struct Buffer * buffer, struct Turtle * turtle){
 	// Tmp variables
 	int bufferLength = buffer->index;
@@ -168,13 +201,14 @@ void getCommands(struct Buffer * buffer, struct Turtle * turtle){
 				// Command value
 				// Add command and value to operation list
 				addTask(tmpCommand, data, turtle);
-				//printf("command %s value: %s \n", tmpCommand, data);
+				//printf("command %s value: %s \n", tmpCommand, data)
+				printf("%s %s\n", tmpCommand, data);
 			}
 			// Reset charCounter
 			charCounter = 0;
 			spaces++;
 			continue;
-		}else if(inputChar == ']'){
+		}else if(i == bufferLength -1){		// Last character 
 			// Add command and value to operation list
 			addTask(tmpCommand, data, turtle);
 
@@ -212,7 +246,7 @@ Boolean isInputEnter(char c){
 	return isInputEnter;
 }
 
-
+// Return true if we have task in the list
 Boolean taskExists(struct Turtle * turtle){
 	Boolean taskExists = true;
 	if(turtle->operations[0] == EMPTY){
@@ -222,6 +256,7 @@ Boolean taskExists(struct Turtle * turtle){
 	return taskExists;
 }
 
+// Remove task from the list
 void removeTask(struct Turtle * turtle){
 	
 	// Remove from operations list
@@ -246,21 +281,21 @@ void removeTask(struct Turtle * turtle){
 	}
 }
 
-
-
+// Handle all tasks
 void taskHandler(struct Turtle * turtle){
 	// Check if we have task to do
 	if(taskExists(turtle) == true){
 		// Check if the first task is "repeat"
 		int operationIndex = turtle->operations[0];
 		if(strcmp(turtle->options[operationIndex], "repeat") == 0){
+			hr();
 			// Repeat function
 			turtle->N = turtle->values[0];
 			printf("Found repeat function with N = %d \n", turtle->N);
 			// line break
 			hr();
 			// Remove task
-			removeTask(turtle);
+			 removeTask(turtle);
 		}else{
 			turtle->N = 1;
 		}
@@ -276,6 +311,7 @@ void taskHandler(struct Turtle * turtle){
 
 	}
 }
+
 
 void initTurtle(struct Turtle * turtle){
 	// Set value
@@ -332,11 +368,14 @@ int main()
 
 	// User input will be saved  in this var
 	// TESTING !!!!!!!
-	char input[] = "repeat 3 [right 12 left 13 forward 22 forward 11 pendown 1 left 99]";
+	char input[] = "repeat 4 [right 12 left 12321 forward 11 pendown 12222 left 0 left 20]";
+	//char input[] = "left 10 right 10 forward 10 ";
 	userInput(input, buffer);
 
 	//printf("Buffer: %s\n", buffer->db);
-	printf("input: %s\n", input);
+	printf("Input from user: \n");
+	
+	printf("--> %s\n", input);
 		
 	buffer->input = ENTER;
 	addInputChar(buffer);
@@ -353,8 +392,7 @@ int main()
 		// Add character to buffer
 	}
 	
-	hr();
 	taskHandler(turtle);
-	removeTask(turtle);
+		
   	return 0;
 }
