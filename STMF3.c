@@ -56,38 +56,38 @@
 #define CHAR_INTERRUPT_SIZE 1
 
 //-------------------------------------------------//
-//      User: Global variables
-//-------------------------------------------------//
-char input[1];
-
-//-------------------------------------------------//
 //      User: Structs & Enums
 //-------------------------------------------------//
 typedef enum{
-	true = 1,
-	TRUE = 1,
-	false = 0,
-	FALSE = 0
+  true = 1,
+  TRUE = 1,
+  false = 0,
+  FALSE = 0
 }Boolean;
 
 struct Turtle{
-	char * options[OPERATIONS];             // Operations the turtle can perform
-	char * feedback[OPERATIONS];		// Feed back response to the user
-	char * errors[3];			// Errors that could occur
+  char * options[OPERATIONS];             // Operations the turtle can perform
+  char * feedback[OPERATIONS];    // Feed back response to the user
+  char * errors[3];     // Errors that could occur
 
-	int operations[OPERATION_LIST];		// List of all operations added by user
-	int values[OPERATION_LIST];		// Values for each operation
-	int index;				// Reference counter for knowing quantity of the operations
-	int N;					// Reapeat value for commands between [ c1 v1 c2 v2 ... cn vn]
+  int operations[OPERATION_LIST];   // List of all operations added by user
+  int values[OPERATION_LIST];   // Values for each operation
+  int index;        // Reference counter for knowing quantity of the operations
+  int N;          // Reapeat value for commands between [ c1 v1 c2 v2 ... cn vn]
 };
 
 struct Buffer
 {
-	char input;				// Input char from terminal
-	char db[BUFFER_LENGTH];		        // Buffer storing the inputs from terminal
-	int index;				// Is used for the buffer, ex Buffer->db[index++] = 'a'
+  char input;       // Input char from terminal
+  char db[BUFFER_LENGTH];           // Buffer storing the inputs from terminal
+  int index;        // Is used for the buffer, ex Buffer->db[index++] = 'a'
 };
 
+//-------------------------------------------------//
+//      User: Global variables
+//-------------------------------------------------//
+char input[1];
+Boolean interrupt = false;
 //-------------------------------------------------//
 //      User: Turtle Fucntions
 //-------------------------------------------------//
@@ -116,12 +116,12 @@ void penUp(){
 //-------------------------------------------------//
 //      User: Turtle Fucntions
 //-------------------------------------------------//
-/*	Convert string to int value */
+/*  Convert string to int value */
 int stringToInt(char string[]){
-	char * endptr;
-	int base = 10;
+  char * endptr;
+  int base = 10;
 
-	return strtoimax(string,&endptr,base);
+  return strtoimax(string,&endptr,base);
 }
 // Add task to the task list
 Boolean addTask(char command[], char value[], struct Turtle * turtle){
@@ -375,11 +375,11 @@ void initTurtle(struct Turtle * turtle){
   turtle->feedback[1] = "Going left";
   turtle->feedback[2] = "Going right";
   turtle->feedback[3] = "Pick up pen";
-  turtle->feedback[4] = "Pick down the pen";	
-  turtle->feedback[5] = "Repeat function";	
+  turtle->feedback[4] = "Pick down the pen";  
+  turtle->feedback[5] = "Repeat function";  
 
   // Error feedback
-  turtle->errors[0]	= "Command does not exist";
+  turtle->errors[0] = "Command does not exist";
   // Init task list
   for (int i = 0; i < OPERATION_LIST; ++i)
   {
@@ -416,7 +416,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle) {
   
   HAL_UART_Transmit_IT(&huart3, (uint8_t *)input, CHAR_INTERRUPT_SIZE);
   UartReady = SET; 
-
+  
+  interrupt = true;
+  
 } 
 
 int main(void)
@@ -437,7 +439,7 @@ int main(void)
 
   // Buffer object
   struct Buffer * buffer = (struct Buffer *)malloc(sizeof(struct Buffer)); 
-  //buffer = (struct buffer *) malloc(sizeof(struct buffer));	
+  //buffer = (struct buffer *) malloc(sizeof(struct buffer)); 
   buffer->index = 0;
   
   
@@ -451,25 +453,28 @@ int main(void)
       UartReady = RESET;
     }
     
-    /*
+    
     // Get the input
-    if(UartReady == RESET){
+    if(interrupt == true){
       // Get the input (one char) from the user and att to the buffer
       buffer->input = input[0];
       addInputChar(buffer);
       
-      HAL_UART_Transmit_IT(&huart3, (uint8_t *)buffer->db, CHAR_INTERRUPT_SIZE);
+      HAL_UART_Transmit_IT(&huart3, (uint8_t *)buffer->input, CHAR_INTERRUPT_SIZE);
       
       // Check if the input was enter
       if(isInputEnter(input[0])){
         // Check if the command exists, if true, set value
-        if(isValidInput(buffer,turtle) == true){	
+        if(isValidInput(buffer,turtle) == true){  
           // Get all commands and att to task list
           getCommands(buffer, turtle);
         }
       }
+      
+      //
+      interrupt = false;
     }
-    */
+    
     //HAL_UART_Receive(&huart3, &Tecken, 1, 5000);     
     //HAL_UART_Transmit(&huart3, &Tecken, 1, 5000); 
   }
