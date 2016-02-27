@@ -10,6 +10,7 @@
 #define OPERATIONS 6
 #define OPERATION_LIST 20
 #define EMPTY OPERATION_LIST+1
+#define BUFFER_LENGTH 200
 
 typedef enum{
 	true = 1,
@@ -32,7 +33,7 @@ struct Turtle{
 struct Buffer
 {
 	char input;												// Input char from terminal
-	char db[1000];										// Buffer storing the inputs from terminal
+	char db[BUFFER_LENGTH];										// Buffer storing the inputs from terminal
 	int index;												// Is used for the buffer, ex Buffer->db[index++] = 'a'
 };
 
@@ -127,7 +128,7 @@ Boolean isValidInput(struct Buffer * buffer, struct Turtle * turtle){
 	
 	// Tmp variables
 	int bufferLength = buffer->index;
-	char data[bufferLength];
+	char data[BUFFER_LENGTH];
 
 	int charCounter = 0;
 	int spaces = 0;
@@ -164,8 +165,9 @@ Boolean isValidInput(struct Buffer * buffer, struct Turtle * turtle){
 			charCounter = 0;
 			spaces++;
 			continue;
-		}else if(inputChar == ']'){
-			//printf("Value: %s\n", data);
+		}else if(inputChar == 'x'){
+			// Stop the scan of the buffer
+			break;
 		}
 
 		// Store data
@@ -181,7 +183,7 @@ Boolean isValidInput(struct Buffer * buffer, struct Turtle * turtle){
 void getCommands(struct Buffer * buffer, struct Turtle * turtle){
 	// Tmp variables
 	int bufferLength = buffer->index;
-	char data[bufferLength];
+	char data[BUFFER_LENGTH];
 	int charCounter = 0;
 	int spaces = 0;
 
@@ -208,11 +210,13 @@ void getCommands(struct Buffer * buffer, struct Turtle * turtle){
 			charCounter = 0;
 			spaces++;
 			continue;
-		}else if(i == bufferLength -1){		// Last character 
+		}else if(inputChar == ENTER){		// Last character 
 			// Add command and value to operation list
 			addTask(tmpCommand, data, turtle);
 
 			//printf("command %s value: %s \n", tmpCommand, data);
+			// Stop the scanning the buffer
+			break;
 
 		}
 		// Store data
@@ -368,7 +372,7 @@ int main()
 
 	// User input will be saved  in this var
 	// TESTING !!!!!!!
-	char input[] = "repeat 4 [right 12 left 12321 forward 11 pendown 12222 left 0 left 20]";
+	char input[] = "repeat 5 [right 12 left 12321 forward 11 pendown 12222 left 0 left 20]x dsad dsa";
 	//char input[] = "left 10 right 10 forward 10 ";
 	userInput(input, buffer);
 
