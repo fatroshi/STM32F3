@@ -3,35 +3,10 @@
   * File Name          : main.c
   * Description        : Main program body
   ******************************************************************************
-  *
-  * COPYRIGHT(c) 2016 STMicroelectronics
-  *
-  * Redistribution and use in source and binary forms, with or without modification,
-  * are permitted provided that the following conditions are met:
-  *   1. Redistributions of source code must retain the above copyright notice,
-  *      this list of conditions and the following disclaimer.
-  *   2. Redistributions in binary form must reproduce the above copyright notice,
-  *      this list of conditions and the following disclaimer in the documentation
-  *      and/or other materials provided with the distribution.
-  *   3. Neither the name of STMicroelectronics nor the names of its contributors
-  *      may be used to endorse or promote products derived from this software
-  *      without specific prior written permission.
-  *
-  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-  * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-  * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-  *
-  ******************************************************************************
   */
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f3xx_hal.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -47,14 +22,21 @@
 //-------------------------------------------------//
 //      User: Define Constants
 //-------------------------------------------------//
-#define ENTER 'x'
+#define ENTER '\r'
 #define SPACE ' '
 #define OPERATIONS 6
 #define OPERATION_LIST 20
 #define EMPTY OPERATION_LIST+1
 #define BUFFER_LENGTH 200
 #define CHAR_INTERRUPT_SIZE 1
-
+#define ONE_CYCLE 400
+// OPERATION INDEX
+#define FORWARD 0
+#define LEFT 1
+#define RIGHT 2
+#define PEN_UP 3
+#define PEN_DOWN 4
+#define REPEAT 5
 //-------------------------------------------------//
 //      User: Structs & Enums
 //-------------------------------------------------//
@@ -91,26 +73,96 @@ Boolean interrupt = false;
 //-------------------------------------------------//
 //      User: Turtle Fucntions
 //-------------------------------------------------//
-void forward (int disetance){
+void initEngine(){
+  HAL_GPIO_WritePin(ENABLE_GPIO_Port,ENABLE_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(MS1_GPIO_Port,MS1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(MS2_GPIO_Port,MS2_Pin, GPIO_PIN_SET);
+}
+
+int forward (int _distance){
   printf("forward(disetance)\n");
+  
+  float diameter = 47;
+  float circumference = diameter * 3.14;
+  int diff = 5; // Diff with 5mm
+  
+  // Calculate number of pulses
+  int distance = (int)(_distance + diff) * ONE_CYCLE / circumference;
+  return distance;
 }
 
-void rotate (int decrease){
-  if(decrease < 0){
-    // Rotate left
-  }else{
-    // Rotate right
-  }
-
+void left(int degrees){
+  
   printf("rotate(decrease)\n");
+  
+  // init dir1 and dir 2
+  HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin, GPIO_PIN_SET);             // LEFT
+  HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin, GPIO_PIN_RESET);           // RIGHT  
+  
+  // init Engine
+  initEngine();
+
+  // Calculate pulses
+  float diameter = 120;
+  float pi = 3.141592;
+  float circumference = (diameter * pi) / 360;   
+  float distance = circumference * degrees;
+  int pulse = forward((int)distance);
+  
+  // Send PWM to engines
+  for(int i=0; i <= pulse; i++){
+    HAL_GPIO_WritePin(STEP1_GPIO_Port,STEP1_Pin, GPIO_PIN_SET);
+    HAL_Delay(1);
+    HAL_GPIO_WritePin(STEP1_GPIO_Port,STEP1_Pin, GPIO_PIN_RESET);
+    HAL_Delay(1);
+    HAL_GPIO_WritePin(STEP2_GPIO_Port,STEP2_Pin, GPIO_PIN_SET);
+    HAL_Delay(1);
+    HAL_GPIO_WritePin(STEP2_GPIO_Port,STEP2_Pin, GPIO_PIN_RESET);
+    HAL_Delay(1);
+  }
+  
 }
+
+
 
 void penDown(){
-  printf("penDown()\n");
+  printf("penDown()\n\r");
+  sConfigOC.Pulse = (40000 * 3) / 100;
+    // PWM
+  /* Set the pulse value for channel 2 */
+  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    /* Configuration Error */
+    //Error_Handler();
+  }
+
+  /* Start channel 2 */
+  if (HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2) != HAL_OK)
+  {
+    /* PWM Generation Error */
+    //Error_Handler();
+  }
+  
 }
 
 void penUp(){
-  printf("penUp()\n");
+  printf("penUp()\n\r");
+  sConfigOC.Pulse = (40000 * 5) / 100;
+  
+    // PWM
+  /* Set the pulse value for channel 2 */
+  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    /* Configuration Error */
+    //Error_Handler();
+  }
+
+  /* Start channel 2 */
+  if (HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2) != HAL_OK)
+  {
+    /* PWM Generation Error */
+    //Error_Handler();
+  }
 }
 
 //-------------------------------------------------//
@@ -304,7 +356,7 @@ Boolean taskExists(struct Turtle * turtle){
 }
 
 // Remove task from the list
-void removeTask(struct Turtle * turtle){
+void removeTask(struct Buffer * buffer,struct Turtle * turtle){
   // Remove from operations list
   for (int i = 1; i < OPERATION_LIST; ++i)
   {
@@ -325,23 +377,21 @@ void removeTask(struct Turtle * turtle){
   if(turtle->index > 0){
           turtle->index -=1;
   }
+  // Reset buffer character counter
+  buffer->index = 0;
 }
 
 // Handle all tasks
-void taskHandler(struct Turtle * turtle){
+void taskHandler(struct Buffer * buffer,struct Turtle * turtle){
   // Check if we have task to do
   if(taskExists(turtle) == true){
     // Check if the first task is "repeat"
     int operationIndex = turtle->operations[0];
     if(strcmp(turtle->options[operationIndex], "repeat") == 0){
-      hr();
       // Repeat function
       turtle->N = turtle->values[0];
-      printf("Found repeat function with N = %d \n", turtle->N);
-      // line break
-      hr();
       // Remove task
-      removeTask(turtle);
+      removeTask(buffer, turtle);
     }else{
       turtle->N = 1;
     }
@@ -352,7 +402,37 @@ void taskHandler(struct Turtle * turtle){
       // This function should be replaced by a function that performs all the task!
       //
       printTasks(turtle);
-      //hr();
+      /*
+      #define FORWARD 0
+      #define LEFT 1
+      #define RIGHT 2
+      #define PEN_UP 3
+      #define PEN_DOWN 4
+      #define REPEAT 5
+      
+      */
+      // Get command and value
+      int operation = turtle->operations[i];
+      int operationValue = turtle->values[i];
+      
+      // Perform the task
+      switch(operation){
+        case FORWARD:
+          forward(operationValue);
+        case LEFT:
+          left(operationValue);
+        case RIGHT:
+          forward(operationValue);
+        case PEN_UP:
+          penUp();
+          removeTask(buffer, turtle);
+          break;
+        case PEN_DOWN:
+          penDown();
+          removeTask(buffer, turtle);
+          break;          
+      }
+      
     }
 
   }
@@ -363,23 +443,23 @@ void initTurtle(struct Turtle * turtle){
   // Set value
   turtle->index = 0;
   // All commands
-  turtle->options[0] = "forward";
-  turtle->options[1] = "left";
-  turtle->options[2] = "right";
-  turtle->options[3] = "penup";
-  turtle->options[4] = "pendown";
-  turtle->options[5] = "repeat";
+  turtle->options[FORWARD]      = "forward";
+  turtle->options[LEFT]         = "left";
+  turtle->options[RIGHT]        = "right";
+  turtle->options[PEN_UP]       = "penup";
+  turtle->options[PEN_DOWN]     = "pendown";
+  turtle->options[REPEAT]       = "repeat";
   
   // Feedback response for each command
-  turtle->feedback[0] = "Going forwad";
-  turtle->feedback[1] = "Going left";
-  turtle->feedback[2] = "Going right";
-  turtle->feedback[3] = "Pick up pen";
-  turtle->feedback[4] = "Pick down the pen";  
-  turtle->feedback[5] = "Repeat function";  
+  turtle->feedback[FORWARD]     = "Going forwad";
+  turtle->feedback[LEFT]        = "Going left";
+  turtle->feedback[RIGHT]       = "Going right";
+  turtle->feedback[PEN_UP]      = "Pick up pen";
+  turtle->feedback[PEN_DOWN]    = "Pick down the pen";  
+  turtle->feedback[REPEAT]      = "Repeat function";  
 
   // Error feedback
-  turtle->errors[0] = "Command does not exist";
+  turtle->errors[0]             = "Command does not exist";
   // Init task list
   for (int i = 0; i < OPERATION_LIST; ++i)
   {
@@ -400,10 +480,6 @@ void userInput(char string[], struct Buffer * buffer){
   //printf("%s\n", buffer->db);
 }
 
-
-
-
-
 ITStatus UartReady = SET;
 
 void SystemClock_Config(void);
@@ -414,7 +490,7 @@ void SystemClock_Config(void);
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle) {   
   /* Set transmission flag: trasfer complete*/  
   
-  HAL_UART_Transmit_IT(&huart3, (uint8_t *)input, CHAR_INTERRUPT_SIZE);
+  //HAL_UART_Transmit_IT(&huart3, (uint8_t *)input, CHAR_INTERRUPT_SIZE);
   UartReady = SET; 
   
   interrupt = true;
@@ -425,14 +501,25 @@ int main(void)
 {
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
+
   /* Configure the system clock */
   SystemClock_Config();
+
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_TIM4_Init();
   MX_USART3_UART_Init();
 
-  // USER CODE
-  // Turtle object
+  // Motor
+    
+  
+  //
+  HAL_GPIO_WritePin(ENABLE_GPIO_Port,ENABLE_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(MS1_GPIO_Port,MS1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(MS2_GPIO_Port,MS2_Pin, GPIO_PIN_SET);
+  // Motor END
+  
+  /* User var */
   struct Turtle * turtle  = (struct Turtle *)malloc(sizeof(struct Turtle)); 
   // Init. turtle struct
   initTurtle(turtle);
@@ -441,7 +528,6 @@ int main(void)
   struct Buffer * buffer = (struct Buffer *)malloc(sizeof(struct Buffer)); 
   //buffer = (struct buffer *) malloc(sizeof(struct buffer)); 
   buffer->index = 0;
-  
   
   while (1)
   {
@@ -460,26 +546,29 @@ int main(void)
       buffer->input = input[0];
       addInputChar(buffer);
       
-      HAL_UART_Transmit_IT(&huart3, (uint8_t *)buffer->input, CHAR_INTERRUPT_SIZE);
+      //HAL_UART_Transmit_IT(&huart3, (uint8_t *)buffer->input, CHAR_INTERRUPT_SIZE);
       
       // Check if the input was enter
       if(isInputEnter(input[0])){
+        printf("User pressed ENTER \n\r");
         // Check if the command exists, if true, set value
         if(isValidInput(buffer,turtle) == true){  
           // Get all commands and att to task list
           getCommands(buffer, turtle);
+          
+          // Perform task/s
+          taskHandler(buffer, turtle);
+          
         }
       }
       
       //
       interrupt = false;
     }
-    
-    //HAL_UART_Receive(&huart3, &Tecken, 1, 5000);     
-    //HAL_UART_Transmit(&huart3, &Tecken, 1, 5000); 
-  }
 
+  }
 }
+
 
 /** System Clock Configuration
 */
