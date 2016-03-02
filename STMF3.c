@@ -79,39 +79,8 @@ void initEngine(){
   HAL_GPIO_WritePin(MS2_GPIO_Port,MS2_Pin, GPIO_PIN_SET);
 }
 
-int forward (int _distance){
-  printf("forward(disetance)\n");
-  
-  float diameter = 47;
-  float circumference = diameter * 3.14;
-  int diff = 5; // Diff with 5mm
-  
-  // Calculate number of pulses
-  int pulses = (int)(_distance + diff) * ONE_CYCLE / circumference;
-  // return number of pulses needed
-  return pulses;
-}
-
-void left(int degrees){
-  
-  printf("rotate(decrease)\n");
-  
-  // init dir1 and dir 2
-  HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin, GPIO_PIN_SET);             // LEFT
-  HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin, GPIO_PIN_RESET);           // RIGHT  
-  
-  // init Engine
-  initEngine();
-
-  // Calculate pulses
-  float diameter = 120;
-  float pi = 3.141592;
-  float circumference = (diameter * pi) / 360;   
-  float distance = circumference * degrees;
-  int pulse = forward((int)distance);
-  
-  // Send PWM to engines
-  for(int i=0; i <= pulse; i++){
+void sendPWM(int pulses){
+  for(int i=0; i <= pulses; i++){
     HAL_GPIO_WritePin(STEP1_GPIO_Port,STEP1_Pin, GPIO_PIN_SET);
     HAL_Delay(1);
     HAL_GPIO_WritePin(STEP1_GPIO_Port,STEP1_Pin, GPIO_PIN_RESET);
@@ -121,9 +90,68 @@ void left(int degrees){
     HAL_GPIO_WritePin(STEP2_GPIO_Port,STEP2_Pin, GPIO_PIN_RESET);
     HAL_Delay(1);
   }
-  
 }
 
+int distanceToPulse(int _distance){
+  float diameter = 47;
+  float circumference = diameter * 3.14;
+  int diff = 5; // Diff with 5mm
+  
+  // Calculate number of pulses
+  int pulses = (int)(_distance + diff) * ONE_CYCLE / circumference;
+  
+  return pulses;
+}
+
+void forward (int _distance){
+  printf("forward(disetance)\n");
+
+  // init dir1 and dir 2
+  HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin, GPIO_PIN_SET);             // LEFT
+  HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin, GPIO_PIN_SET);           // RIGHT  
+
+  // Send PWM to engines
+  sendPWM(distanceToPulse(_distance));
+}
+
+void left(int degrees){
+  
+  printf("rotate(decrease)\n");
+  
+  // init dir1 and dir 2
+  HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin, GPIO_PIN_SET);             // LEFT
+  HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin, GPIO_PIN_RESET);           // RIGHT  
+
+  // Calculate pulses
+  float diameter = 120;
+  float pi = 3.141592;
+  float circumference = (diameter * pi) / 360;   
+  float distance = circumference * degrees;
+  int pulse = distanceToPulse((int)distance);
+  
+  // Send PWM to engines
+  sendPWM(pulse);
+}
+
+void right(int degrees){
+  
+  printf("rotate(decrease)\n");
+  
+  // init dir1 and dir 2
+  HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin, GPIO_PIN_RESET);             // LEFT
+  HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin, GPIO_PIN_SET);               // RIGHT  
+
+
+  // Calculate pulses
+  float diameter = 120;
+  float pi = 3.141592;
+  float circumference = (diameter * pi) / 360;   
+  float distance = circumference * degrees;
+  int pulse = distanceToPulse((int)distance);
+  
+  // Send PWM to engines
+  sendPWM(pulse);
+}
 
 
 void penDown(){
@@ -248,22 +276,18 @@ Boolean isValidInput(struct Buffer * buffer, struct Turtle * turtle){
       if(spaces % 2 == 0){
         // Command value
         // Check if command exist
-        //printf("Command: %s\n", data);
         strcpy(tmpCommand, data);
 
         if(commandExists(tmpCommand, turtle) == false){
-          // Print error: Command does not exist
-          //hr();
           printf("%s --> %s\n", tmpCommand, turtle->errors[0]); 
-          //hr();
           //
           commandValid = false;
-          //break;
         }
       }else if(inputChar == ENTER){
         //Stop the buffer scan
         break;
       }
+
 
       // Reset charCounter
       charCounter = 0;
@@ -276,7 +300,13 @@ Boolean isValidInput(struct Buffer * buffer, struct Turtle * turtle){
     data[charCounter+1] = '\0';
 
   }
-  return commandValid;
+  
+  // Reset buffer->index = 0 if invalid command was found
+  if(commandValid == false){
+    buffer->index = 0;
+  }
+  
+   return commandValid;
 }
 
 // Get all the commands from the user input (buffer->db)
@@ -403,15 +433,7 @@ void taskHandler(struct Buffer * buffer,struct Turtle * turtle){
       // This function should be replaced by a function that performs all the task!
       //
       printTasks(turtle);
-      /*
-      #define FORWARD 0
-      #define LEFT 1
-      #define RIGHT 2
-      #define PEN_UP 3
-      #define PEN_DOWN 4
-      #define REPEAT 5
-      
-      */
+
       // Get command and value
       int operation = turtle->operations[i];
       int operationValue = turtle->values[i];
@@ -420,10 +442,16 @@ void taskHandler(struct Buffer * buffer,struct Turtle * turtle){
       switch(operation){
         case FORWARD:
           forward(operationValue);
+          removeTask(buffer, turtle);
+          break;
         case LEFT:
           left(operationValue);
+          removeTask(buffer, turtle);
+          break;
         case RIGHT:
-          forward(operationValue);
+          right(operationValue);
+          removeTask(buffer, turtle);
+          break;
         case PEN_UP:
           penUp();
           removeTask(buffer, turtle);
@@ -431,7 +459,9 @@ void taskHandler(struct Buffer * buffer,struct Turtle * turtle){
         case PEN_DOWN:
           penDown();
           removeTask(buffer, turtle);
-          break;          
+          break; 
+        default:
+          break;
       }
       
     }
@@ -511,14 +541,8 @@ int main(void)
   MX_TIM4_Init();
   MX_USART3_UART_Init();
 
-  // Motor
-    
-  
-  //
-  HAL_GPIO_WritePin(ENABLE_GPIO_Port,ENABLE_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(MS1_GPIO_Port,MS1_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(MS2_GPIO_Port,MS2_Pin, GPIO_PIN_SET);
-  // Motor END
+  // init Engine
+  initEngine();
   
   /* User var */
   struct Turtle * turtle  = (struct Turtle *)malloc(sizeof(struct Turtle)); 
