@@ -49,13 +49,14 @@ typedef enum{
 
 struct Turtle{
   char * options[OPERATIONS];             // Operations the turtle can perform
-  char * feedback[OPERATIONS];    // Feed back response to the user
-  char * errors[3];     // Errors that could occur
+  char * feedback[OPERATIONS];            // Feed back response to the user
+  char * feedbackDone[OPERATIONS];        // Feed back response to the user
+  char * errors[3];                       // Errors that could occur
 
-  int operations[OPERATION_LIST];   // List of all operations added by user
-  int values[OPERATION_LIST];   // Values for each operation
-  int index;        // Reference counter for knowing quantity of the operations
-  int N;          // Reapeat value for commands between [ c1 v1 c2 v2 ... cn vn]
+  int operations[OPERATION_LIST];         // List of all operations added by user
+  int values[OPERATION_LIST];             // Values for each operation
+  int index;                              // Reference counter for knowing quantity of the operations
+  int N;                                  // Reapeat value for commands between [ c1 v1 c2 v2 ... cn vn]
 };
 
 struct Buffer
@@ -92,7 +93,7 @@ void sendPWM(int pulses){
   }
 }
 
-int distanceToPulse(int _distance){
+int distanceToPWM(int _distance){
   float diameter = 47;
   float circumference = diameter * 3.14;
   int diff = 5; // Diff with 5mm
@@ -108,10 +109,10 @@ void forward (int _distance){
 
   // init dir1 and dir 2
   HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin, GPIO_PIN_SET);             // LEFT
-  HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin, GPIO_PIN_SET);           // RIGHT  
+  HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin, GPIO_PIN_SET);             // RIGHT  
 
   // Send PWM to engines
-  sendPWM(distanceToPulse(_distance));
+  sendPWM(distanceToPWM(_distance));
 }
 
 void left(int degrees){
@@ -125,9 +126,9 @@ void left(int degrees){
   // Calculate pulses
   float diameter = 120;
   float pi = 3.141592;
-  float circumference = (diameter * pi) / 360;   
-  float distance = circumference * degrees;
-  int pulse = distanceToPulse((int)distance);
+  float circumference = diameter * pi;   
+  float distance = (circumference / 360) * degrees;
+  int pulse = distanceToPWM((int)distance);
   
   // Send PWM to engines
   sendPWM(pulse);
@@ -145,9 +146,9 @@ void right(int degrees){
   // Calculate pulses
   float diameter = 120;
   float pi = 3.141592;
-  float circumference = (diameter * pi) / 360;   
-  float distance = circumference * degrees;
-  int pulse = distanceToPulse((int)distance);
+  float circumference = diameter * pi;   
+  float distance = (circumference / 360) * degrees;
+  int pulse = distanceToPWM((int)distance);
   
   // Send PWM to engines
   sendPWM(pulse);
@@ -412,6 +413,35 @@ void removeTask(struct Buffer * buffer,struct Turtle * turtle){
   buffer->index = 0;
 }
 
+
+// Send feedback to user
+
+void sendFeedback(int feedBackIndex, struct Turtle * turtle){
+  
+  int msgOk = HAL_UART_Transmit(&huart3, 
+              (uint8_t *)turtle->feedback[feedBackIndex], 
+              strlen(turtle->feedback[feedBackIndex]),
+              1000);
+  if(msgOk != HAL_OK){
+    printf("Could not send feedback: %s \n\r", turtle->feedback[feedBackIndex]);
+  }else{
+    printf("Feedback send\n\r");
+  }
+}
+
+void sendFeedbackDone(int feedBackIndex, struct Turtle * turtle){
+  
+  int msgOk = HAL_UART_Transmit(&huart3, 
+              (uint8_t *)turtle->feedbackDone[feedBackIndex], 
+              strlen(turtle->feedback[feedBackIndex]),
+              1500);
+  if(msgOk != HAL_OK){
+    printf("Could not send feedback done: %s \n\r", turtle->feedbackDone[feedBackIndex]);
+  }else{
+    printf("Feedback done send\n\r");
+  }
+}
+
 // Handle all tasks
 void taskHandler(struct Buffer * buffer,struct Turtle * turtle){
   // Check if we have task to do
@@ -441,23 +471,53 @@ void taskHandler(struct Buffer * buffer,struct Turtle * turtle){
       // Perform the task
       switch(operation){
         case FORWARD:
+          // Send feedback - command was accepted
+          sendFeedback(FORWARD, turtle);
+          // Perform task
           forward(operationValue);
+          // Send feedback - operation is finished
+          sendFeedbackDone(FORWARD, turtle);
+          // Remove task from tasklist
           removeTask(buffer, turtle);
           break;
         case LEFT:
+          // Send feedback - command was accepted
+          sendFeedback(LEFT, turtle);
+          // Perform task
           left(operationValue);
-          removeTask(buffer, turtle);
+          // Send feedback - operation is finished
+          sendFeedbackDone(LEFT, turtle);
+          // Remove task from tasklist
+          removeTask(buffer, turtle);;
           break;
         case RIGHT:
+          // Send feedback - command was accepted
+          sendFeedback(RIGHT, turtle);
+          // Perform task
           right(operationValue);
+          // Send feedback - operation is finished
+          sendFeedbackDone(RIGHT, turtle);
+          // Remove task from tasklist
           removeTask(buffer, turtle);
           break;
         case PEN_UP:
-          penUp();
+          // Send feedback - command was accepted
+          sendFeedback(FORWARD, turtle);
+          // Perform task
+          penUp(operationValue);
+          // Send feedback - operation is finished
+          sendFeedbackDone(FORWARD, turtle);
+          // Remove task from tasklist
           removeTask(buffer, turtle);
           break;
         case PEN_DOWN:
-          penDown();
+          // Send feedback - command was accepted
+          sendFeedback(PEN_DOWN, turtle);
+          // Perform task
+          penDown(operationValue);
+          // Send feedback - operation is finished
+          sendFeedbackDone(PEN_DOWN, turtle);
+          // Remove task from tasklist
           removeTask(buffer, turtle);
           break; 
         default:
@@ -482,21 +542,29 @@ void initTurtle(struct Turtle * turtle){
   turtle->options[REPEAT]       = "repeat";
   
   // Feedback response for each command
-  turtle->feedback[FORWARD]     = "Going forwad";
-  turtle->feedback[LEFT]        = "Going left";
-  turtle->feedback[RIGHT]       = "Going right";
-  turtle->feedback[PEN_UP]      = "Pick up pen";
-  turtle->feedback[PEN_DOWN]    = "Pick down the pen";  
-  turtle->feedback[REPEAT]      = "Repeat function";  
-
+  turtle->feedback[FORWARD]     = "Going forward\r\n";
+  turtle->feedback[LEFT]        = "Going left\r\n";
+  turtle->feedback[RIGHT]       = "Going right\r\n";
+  turtle->feedback[PEN_UP]      = "Pick up pen\r\n";
+  turtle->feedback[PEN_DOWN]    = "Pick down the pen\r\n";  
+  turtle->feedback[REPEAT]      = "Repeat function\r\n";  
+  
+  // Feedback response for each command
+  turtle->feedbackDone[FORWARD]     = "Forward: done\r\n\r\n\r\n";
+  turtle->feedbackDone[LEFT]        = "Left: done\r\n\r\n";
+  turtle->feedbackDone[RIGHT]       = "Right: done\r\n\r\n";
+  turtle->feedbackDone[PEN_UP]      = "Pen Up: done\r\n\r\n";
+  turtle->feedbackDone[PEN_DOWN]    = "Pen Down: done\r\n\r\n";  
+  turtle->feedbackDone[REPEAT]      = "Repeat: done\r\n\r\n";  
+  
   // Error feedback
   turtle->errors[0]             = "Command does not exist";
+  
   // Init task list
   for (int i = 0; i < OPERATION_LIST; ++i)
   {
     turtle->operations[i] = EMPTY;
   }
-
 }
 
 /* This function is only for testing should be removed  later */
@@ -520,13 +588,16 @@ void SystemClock_Config(void);
 *         you can add your own implementation. * @retval None */ 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle) {   
   /* Set transmission flag: trasfer complete*/  
-  
-  //HAL_UART_Transmit_IT(&huart3, (uint8_t *)input, CHAR_INTERRUPT_SIZE);
+  // SET flag
   UartReady = SET; 
-  
+  // SET flag
   interrupt = true;
-  
 } 
+
+void wellcomeMsg(){
+  char msg[] = "Hi turtle\r\n";
+  HAL_UART_Transmit(&huart3,(uint8_t *)msg, strlen(msg),1000);
+}
 
 int main(void)
 {
@@ -553,6 +624,9 @@ int main(void)
   struct Buffer * buffer = (struct Buffer *)malloc(sizeof(struct Buffer)); 
   //buffer = (struct buffer *) malloc(sizeof(struct buffer)); 
   buffer->index = 0;
+  
+  // Send wellcome message to turtle
+  wellcomeMsg();
   
   while (1)
   {
