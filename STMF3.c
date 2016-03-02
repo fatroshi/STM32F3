@@ -87,8 +87,9 @@ int forward (int _distance){
   int diff = 5; // Diff with 5mm
   
   // Calculate number of pulses
-  int distance = (int)(_distance + diff) * ONE_CYCLE / circumference;
-  return distance;
+  int pulses = (int)(_distance + diff) * ONE_CYCLE / circumference;
+  // return number of pulses needed
+  return pulses;
 }
 
 void left(int degrees){
