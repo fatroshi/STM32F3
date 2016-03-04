@@ -105,8 +105,6 @@ int distanceToPWM(int _distance){
 }
 
 void forward (int _distance){
-  printf("forward(disetance)\n");
-
   // init dir1 and dir 2
   HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin, GPIO_PIN_SET);             // LEFT
   HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin, GPIO_PIN_SET);             // RIGHT  
@@ -116,9 +114,6 @@ void forward (int _distance){
 }
 
 void left(int degrees){
-  
-  printf("rotate(decrease)\n");
-  
   // init dir1 and dir 2
   HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin, GPIO_PIN_SET);             // LEFT
   HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin, GPIO_PIN_RESET);           // RIGHT  
@@ -135,9 +130,6 @@ void left(int degrees){
 }
 
 void right(int degrees){
-  
-  printf("rotate(decrease)\n");
-  
   // init dir1 and dir 2
   HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin, GPIO_PIN_RESET);             // LEFT
   HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin, GPIO_PIN_SET);               // RIGHT  
@@ -154,9 +146,7 @@ void right(int degrees){
   sendPWM(pulse);
 }
 
-
 void penDown(){
-  printf("penDown()\n\r");
   sConfigOC.Pulse = (40000 * 3) / 100;
     // PWM
   /* Set the pulse value for channel 2 */
@@ -176,10 +166,8 @@ void penDown(){
 }
 
 void penUp(){
-  printf("penUp()\n\r");
   sConfigOC.Pulse = (40000 * 5) / 100;
   
-    // PWM
   /* Set the pulse value for channel 2 */
   if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
   {
@@ -196,7 +184,7 @@ void penUp(){
 }
 
 //-------------------------------------------------//
-//      User: Turtle Fucntions
+//      User: Fucntions
 //-------------------------------------------------//
 /*  Convert string to int value */
 int stringToInt(char string[]){
@@ -209,7 +197,7 @@ int stringToInt(char string[]){
 Boolean addTask(char command[], char value[], struct Turtle * turtle){
   Boolean foundCommand = false;
   // Check if the command exists
-  for (int operationIndex = 0; operationIndex < OPERATIONS; ++operationIndex){
+  for (int operationIndex = 0; operationIndex < OPERATIONS; operationIndex++){
     if(strcmp(turtle->options[operationIndex],command) == 0){
       
       foundCommand = true;
@@ -248,7 +236,7 @@ void printTasks(struct Turtle * turtle){
     for (int i = 0; i < size; ++i)
     {
         int index = turtle->operations[i];
-        printf("%s %d\n", turtle->options[index], turtle->values[i]);
+        printf("%s %d\n\r", turtle->options[index], turtle->values[i]);
     }
 }
 
@@ -335,7 +323,7 @@ void getCommands(struct Buffer * buffer, struct Turtle * turtle){
         // Add command and value to operation list
         addTask(tmpCommand, data, turtle);
         //printf("command %s value: %s \n", tmpCommand, data)
-        printf("%s %s\n", tmpCommand, data);
+        //printf("%s %s\n", tmpCommand, data);
       }
       // Reset charCounter
       charCounter = 0;
@@ -413,32 +401,30 @@ void removeTask(struct Buffer * buffer,struct Turtle * turtle){
   buffer->index = 0;
 }
 
-
 // Send feedback to user
-
 void sendFeedback(int feedBackIndex, struct Turtle * turtle){
-  
+  HAL_Delay(500);
   int msgOk = HAL_UART_Transmit(&huart3, 
               (uint8_t *)turtle->feedback[feedBackIndex], 
               strlen(turtle->feedback[feedBackIndex]),
               1000);
   if(msgOk != HAL_OK){
-    printf("Could not send feedback: %s \n\r", turtle->feedback[feedBackIndex]);
+    //printf("Could not send feedback: %s \n\r", turtle->feedback[feedBackIndex]);
   }else{
-    printf("Feedback send\n\r");
+    //printf("Feedback send\n\r");
   }
 }
 
 void sendFeedbackDone(int feedBackIndex, struct Turtle * turtle){
-  
+  HAL_Delay(500);
   int msgOk = HAL_UART_Transmit(&huart3, 
               (uint8_t *)turtle->feedbackDone[feedBackIndex], 
               strlen(turtle->feedback[feedBackIndex]),
               1500);
   if(msgOk != HAL_OK){
-    printf("Could not send feedback done: %s \n\r", turtle->feedbackDone[feedBackIndex]);
+    //printf("Could not send feedback done: %s \n\r", turtle->feedbackDone[feedBackIndex]);
   }else{
-    printf("Feedback done send\n\r");
+    //printf("Feedback done send\n\r");
   }
 }
 
@@ -453,78 +439,82 @@ void taskHandler(struct Buffer * buffer,struct Turtle * turtle){
       turtle->N = turtle->values[0];
       // Remove task
       removeTask(buffer, turtle);
+      
+      buffer->index = 0;
+      printf("Found N = %d\n\r", turtle->N);
+      
     }else{
       turtle->N = 1;
+      printf("N not found \n\r");
     }
-
+    
+    // Print total operations in the list
+    printf("Total tasks: %d \n\r", turtle->index);
+    
     // Do all task N times
     for (int i = 0; i < turtle->N; ++i)
     {
       // This function should be replaced by a function that performs all the task!
-      //
-      printTasks(turtle);
-
-      // Get command and value
-      int operation = turtle->operations[i];
-      int operationValue = turtle->values[i];
+      //printTasks(turtle);
+      for(int j=0; j< turtle->index; j++){
+        int operation = turtle->operations[j];
+        int operationValue = turtle->values[j];
+        // Perform the task
+        switch(operation){
+          case FORWARD:
+            // Send feedback - command was accepted
+            sendFeedback(FORWARD, turtle);
+            // Perform task
+            forward(operationValue);
+            // Send feedback - operation is finished
+            sendFeedbackDone(FORWARD, turtle);
+            break;
+          case LEFT:
+            // Send feedback - command was accepted
+            sendFeedback(LEFT, turtle);
+            // Perform task
+            left(operationValue);
+            // Send feedback - operation is finished
+            sendFeedbackDone(LEFT, turtle);
+            break;
+          case RIGHT:
+            // Send feedback - command was accepted
+            sendFeedback(RIGHT, turtle);
+            // Perform task
+            right(operationValue);
+            // Send feedback - operation is finished
+            sendFeedbackDone(RIGHT, turtle);
+            break;
+          case PEN_UP:
+            // Send feedback - command was accepted
+            sendFeedback(FORWARD, turtle);
+            // Perform task
+            penUp(operationValue);
+            // Send feedback - operation is finished
+            sendFeedbackDone(FORWARD, turtle);
+            break;
+          case PEN_DOWN:
+            // Send feedback - command was accepted
+            sendFeedback(PEN_DOWN, turtle);
+            // Perform task
+            penDown(operationValue);
+            // Send feedback - operation is finished
+            sendFeedbackDone(PEN_DOWN, turtle);
+            break; 
+          default:
+            break;
+        }
+      } // End loop j
       
-      // Perform the task
-      switch(operation){
-        case FORWARD:
-          // Send feedback - command was accepted
-          sendFeedback(FORWARD, turtle);
-          // Perform task
-          forward(operationValue);
-          // Send feedback - operation is finished
-          sendFeedbackDone(FORWARD, turtle);
-          // Remove task from tasklist
-          removeTask(buffer, turtle);
-          break;
-        case LEFT:
-          // Send feedback - command was accepted
-          sendFeedback(LEFT, turtle);
-          // Perform task
-          left(operationValue);
-          // Send feedback - operation is finished
-          sendFeedbackDone(LEFT, turtle);
-          // Remove task from tasklist
-          removeTask(buffer, turtle);;
-          break;
-        case RIGHT:
-          // Send feedback - command was accepted
-          sendFeedback(RIGHT, turtle);
-          // Perform task
-          right(operationValue);
-          // Send feedback - operation is finished
-          sendFeedbackDone(RIGHT, turtle);
-          // Remove task from tasklist
-          removeTask(buffer, turtle);
-          break;
-        case PEN_UP:
-          // Send feedback - command was accepted
-          sendFeedback(FORWARD, turtle);
-          // Perform task
-          penUp(operationValue);
-          // Send feedback - operation is finished
-          sendFeedbackDone(FORWARD, turtle);
-          // Remove task from tasklist
-          removeTask(buffer, turtle);
-          break;
-        case PEN_DOWN:
-          // Send feedback - command was accepted
-          sendFeedback(PEN_DOWN, turtle);
-          // Perform task
-          penDown(operationValue);
-          // Send feedback - operation is finished
-          sendFeedbackDone(PEN_DOWN, turtle);
-          // Remove task from tasklist
-          removeTask(buffer, turtle);
-          break; 
-        default:
-          break;
-      }
-      
+    } // End loop 
+    
+    // Remove all tasks from the list
+    int index = turtle->index;
+    for(int i= 0; i < index; i++){
+      removeTask(buffer, turtle);
     }
+    // Print total operations in the list
+    printf("After loop -> Total tasks: %d \n\r", turtle->index);
 
   }
 }
@@ -649,9 +639,12 @@ int main(void)
       
       // Check if the input was enter
       if(isInputEnter(input[0])){
-        printf("User pressed ENTER \n\r");
+        printf("\n\r");
         // Check if the command exists, if true, set value
         if(isValidInput(buffer,turtle) == true){  
+          
+          // Print out the input 
+          printf("Input: %s \n\r", buffer->db);
           // Get all commands and att to task list
           getCommands(buffer, turtle);
           
